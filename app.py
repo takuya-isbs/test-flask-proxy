@@ -24,14 +24,17 @@ def hello():
     return 'hello'
 
 
-TIMEOUT=30
+TIMEOUT=5
 
 @app.route('/proxy/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def proxy(path):
+    print("request.content_length: " + str(request.content_length))
     try:
         # /proxy を除去して自身と接続して proxy
         target_url = urllib.parse.urljoin(request.host_url, path)
         print(target_url)
+        content_length = request.headers.get('content-length')
+        print("content-length: " + str(type(content_length)) + str(content_length)) #TODO
         if request.method == 'GET':
             reqres = requests.get(
                 target_url,
@@ -54,13 +57,26 @@ def proxy(path):
                     timeout=TIMEOUT
                 )
             else:
+                class StreamData():
+                    def __iter__(self):
+                        return self
+
+                    def __next__(self):
+                        chunk = request.stream.read(8192)
+                        if not chunk:
+                            raise StopIteration
+                        return chunk
+
+                    def __len__(self):
+                        return int(content_length)
+
                 # 単純データ
                 reqres = requests.request(
                     method=request.method,
                     url=target_url,
-                    data=request.stream,
+                    #data=request.stream,
+                    data=StreamData(),
                     params=request.args,
-                    stream=True,
                     timeout=TIMEOUT
                 )
         else:
@@ -106,10 +122,12 @@ def download_file(filename):
 
 @app.route('/ul/<filename>', methods=['PUT', 'POST'])
 def upload_file(filename):
+    print("upload_file !!!!!!!!!!!!!!!!!!!!!1", str(request.headers.get("content-length")))
+    print("upload_file !!!!!!!!!!!!!!!!!!!!!2", str(request.content_length))
     #time.sleep(5)
     try:
-        if request.content_length == 0:
-            return jsonify({'message': 'ファイルが空です'}), 400
+        #if request.content_length == 0:
+        #    return jsonify({'message': 'ファイルが空です'}), 400
 
         safe_filename = secure_filename(filename)
         if safe_filename != filename:
