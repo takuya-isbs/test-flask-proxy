@@ -24,17 +24,32 @@ def hello():
     return 'hello'
 
 
-TIMEOUT=5
+TIMEOUT = 5
 
 @app.route('/proxy/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def proxy(path):
+    print("request.content_type: " + str(request.content_type))
     print("request.content_length: " + str(request.content_length))
+    content_length = request.headers.get('content-length')
+    print("content-length: " + str(type(content_length)) + str(content_length)) #TODO
+
+    #if request.content_length is None or request.content_length > 10000:
+    #    return Response(response='!!!!!!!!!!!!!', status=500)
     try:
         # /proxy を除去して自身と接続して proxy
         target_url = urllib.parse.urljoin(request.host_url, path)
         print(target_url)
-        content_length = request.headers.get('content-length')
-        print("content-length: " + str(type(content_length)) + str(content_length)) #TODO
+
+        # list to dict
+        headers_dict = dict(request.headers)
+        print("/proxy/: " + str(type(headers_dict)) + str(headers_dict))
+        # 転送しないヘッダを除去
+        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection',
+                            'user-agent']
+        # dict
+        headers1 = {name: value for (name, value) in headers_dict.items()
+                    if name.lower() not in excluded_headers}
+
         if request.method == 'GET':
             reqres = requests.get(
                 target_url,
@@ -74,7 +89,7 @@ def proxy(path):
                 reqres = requests.request(
                     method=request.method,
                     url=target_url,
-                    #data=request.stream,
+                    headers=headers1,
                     data=StreamData(),
                     params=request.args,
                     timeout=TIMEOUT
@@ -84,6 +99,7 @@ def proxy(path):
 
         # 転送しないヘッダを除去
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        # list
         headers2 = [(name, value) for (name, value) in reqres.raw.headers.items()
                    if name.lower() not in excluded_headers]
 
@@ -122,8 +138,11 @@ def download_file(filename):
 
 @app.route('/ul/<filename>', methods=['PUT', 'POST'])
 def upload_file(filename):
-    print("upload_file !!!!!!!!!!!!!!!!!!!!!1", str(request.headers.get("content-length")))
-    print("upload_file !!!!!!!!!!!!!!!!!!!!!2", str(request.content_length))
+    print("upload_file content-length", str(request.headers.get("content-length")))
+    print("upload_file request.content_length", str(request.content_length))
+    print("upload_file content_type", str(request.content_type))
+    headers_dict = dict(request.headers)
+    print("/ul/: " + str(type(headers_dict)) + str(headers_dict))
     #time.sleep(5)
     try:
         #if request.content_length == 0:
@@ -179,5 +198,5 @@ def upload_file_multipart():
 
 
 if __name__ == '__main__':
-    #app.run(debug=True, host='0.0.0.0')
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')
+    #app.run(debug=True)

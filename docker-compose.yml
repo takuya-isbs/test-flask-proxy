@@ -1,0 +1,8 @@
+services:
+  rev-proxy:
+    image: nginx
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    ports:
+      - "5001:80"
+      #- "443:443"
